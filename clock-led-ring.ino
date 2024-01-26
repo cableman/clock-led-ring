@@ -8,7 +8,9 @@
 
 CRGB leds[NUM_LEDS];
 
-int brightness = 80;
+int offset = 30;
+int brightness = 160;
+int indicatorBrightness = 96;
 int hourSteps = NUM_LEDS/12;
 bool runTest = true;
 
@@ -25,21 +27,78 @@ void connectTime()
 }
 
 /**
+ * Set brightness for single led.
+ */
+void setLedBrightness(int index, int value = indicatorBrightness)
+{
+  CHSV _targetHSV = rgb2hsv_approximate(leds[index]);
+
+  _targetHSV.v = value;
+  leds[index] = _targetHSV;
+}
+
+/**
+ * Light up every 15 min.
+ */
+void lightUpQuater()
+{
+  for (int i; i <= NUM_LEDS; i++) {
+    if (i % 15 == 0) {
+      leds[i] = CRGB::Yellow;
+      setLedBrightness(i);
+    }
+  }
+}
+
+
+/**
+ * Light up every hour
+ */
+void lightUpHour()
+{
+  for (int i; i <= NUM_LEDS; i++) {
+    if (i % hourSteps == 0) {
+      leds[i] = CRGB::Yellow;
+      setLedBrightness(i);
+    }
+  }
+}
+
+/**
+ * Calculate offset based on where you first led is placed.
+ */
+int calculateOffset(int led)
+{
+  int n = led+offset;
+  if (n > NUM_LEDS)  {
+    n = n - NUM_LEDS;
+  }
+
+  return n;
+}
+
+/**
  * Simple time.
  */
 void simpleTime()
 {
   FastLED.clear();
 
+  lightUpQuater();
+
   String hour = myTZ.dateTime("h");
   int current = hour.toInt()*hourSteps;
-  leds[current ? current -1 : 0] = CRGB::Green;
+  if (current == 60 || current == 0) {
+    current = 1;
+  }
+  leds[calculateOffset(current) - 1] = CRGB::Green;
 
   String min = myTZ.dateTime("i");
-  leds[min.toInt()] = CRGB::Blue;
+  leds[calculateOffset(min.toInt())] = CRGB::Blue;
 
   String sec = myTZ.dateTime("s");
-  leds[sec.toInt()] = CRGB::Red;
+  leds[calculateOffset(sec.toInt())] = CRGB::Red;
+
 
   FastLED.show();
   FastLED.delay(1000);

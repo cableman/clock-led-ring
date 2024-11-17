@@ -5,6 +5,7 @@
 
 #define DATA_PIN D3
 #define NUM_LEDS 60
+#define DEBUG false
 
 CRGB leds[NUM_LEDS];
 
@@ -12,7 +13,6 @@ int offset = 30;
 int brightness = 160;
 int indicatorBrightness = 96;
 int hourSteps = NUM_LEDS/12;
-bool runTest = true;
 
 /**
  * Connect to NTP time server.
@@ -69,8 +69,8 @@ void lightUpHour()
  */
 int calculateOffset(int led)
 {
-  int n = led+offset;
-  if (n > NUM_LEDS)  {
+  int n = led + offset;
+  if (n >= NUM_LEDS)  {
     n = n - NUM_LEDS;
   }
 
@@ -78,39 +78,52 @@ int calculateOffset(int led)
 }
 
 /**
- * Simple time.
+ * Display time.
  */
-void simpleTime()
+void showTime(int hour, int min, int sec)
 {
   FastLED.clear();
+  //lightUpQuater();
 
-  lightUpQuater();
+  // Hours
+  int hourLed = calculateOffset(hour*hourSteps);
+  leds[hourLed] = CRGB::Green;
+  Serial.println((String)"Hours: " + hour + ", Led: " + hourLed);
 
-  String hour = myTZ.dateTime("h");
-  int current = hour.toInt()*hourSteps;
-  if (current == 60 || current == 0) {
-    current = 1;
-  }
-  leds[calculateOffset(current) - 1] = CRGB::Green;
+  // Min
+  int minLed = calculateOffset(min);
+  leds[minLed] = CRGB::Blue;
+  Serial.println((String)"Min: " + min + ", Led: " + minLed);
 
-  String min = myTZ.dateTime("i");
-  leds[calculateOffset(min.toInt())] = CRGB::Blue;
-
-  String sec = myTZ.dateTime("s");
-  leds[calculateOffset(sec.toInt())] = CRGB::Red;
-
+  // Seconds
+  int secLed = calculateOffset(sec);
+  leds[secLed] = CRGB::Red;
+  Serial.println((String)"Sec: " + sec + ", Led: " + secLed);
+  Serial.println("-------------------");
 
   FastLED.show();
   FastLED.delay(1000);
 }
 
 /**
+ * Simple time.
+ */
+void simpleTime()
+{
+  String hour = myTZ.dateTime("h");
+  String min = myTZ.dateTime("i");
+  String sec = myTZ.dateTime("s");
+
+  showTime(hour.toInt(), min.toInt(), sec.toInt());
+}
+
+/**
  * Test that leds are working.
  */
-void ledTest() {
+void ledTest(CRGB color) {
   for(int currentLed = 0; currentLed < NUM_LEDS; currentLed = currentLed + 1) {
       // Turn our current led on to white, then show the leds
-      leds[currentLed] = CRGB::Blue;
+      leds[currentLed] = color;
  
       // Show the leds (only one of which is set to white, from above)
       FastLED.show();
@@ -130,10 +143,24 @@ void setup() {
   // sanity check delay - allows reprogramming if accidently blowing power w/leds
   delay(100);
 
+  Serial.begin(9600);
+  Serial.println("Connected...");
+
+  // Init leds.
   FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);
+
+  // Run led test the first time to light up every led (check that they work).
+  Serial.println("Testing leds....");
+  FastLED.setBrightness(255);
+  ledTest(CRGB::Red);
+  ledTest(CRGB::Green);
+  ledTest(CRGB::Blue);
+
+  // Reset brightness.
   FastLED.setBrightness(brightness);
 
   // Connect to WIFI.
+  Serial.println("Search for wifi...");
   MyWifi* myWifi = new MyWifi(leds);
   myWifi->connect();
 
@@ -145,10 +172,17 @@ void setup() {
  * Run the show.
  */
 void loop() {
-  if (runTest) {
-    // Run led test the first time to light up evert led (check that they work).
-    ledTest();
-    runTest = false;
+
+  if (DEBUG) {
+    showTime(12, 30, 45);
+    delay(10000);
+    showTime(3, 30, 45);
+    delay(10000);
+    showTime(6, 0, 15);
+    delay(10000);
+    showTime(11, 2, 3);
+    delay(10000);
+  } else {
+   simpleTime();
   }
-  simpleTime();
 }
